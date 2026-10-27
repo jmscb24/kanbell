@@ -1,4 +1,4 @@
-# KanBell 1.1 · Recordatorios de fichaje para Kanlane
+# KanBell 1.1.1 · Recordatorios de fichaje para Kanlane
 
 Horarios personales, avisos dentro de Kanlane y notificaciones del sistema mediante
 una ventana auxiliar de escritorio. Cada usuario define sus horas y días. Horario
@@ -199,3 +199,46 @@ Base revisada de Kanlane: `c9222f9c23bbe3cea258459639621964ed20447e`, con sus gu
 PLUGINS/NOTIFICACIONES, plantilla, temporizador, apariencia, SDK, plugin-host,
 plugins-controller y toast-view. El SDK remoto puede cambiar en futuras versiones.
 Identificador estable del plugin: `com.jmscb24.kanbell`. No lo cambies tras instalar.
+
+## Corrección 1.1.1: inicio del panel y caché
+
+Si aparece «Cannot set properties of null (setting 'onclick')», una posible causa
+es que el navegador haya combinado un HTML antiguo con JavaScript actualizado.
+La comprobación pública mostró que ambos archivos publicados estaban completos;
+no se ha confirmado qué copia tenía el navegador afectado.
+
+La versión 1.1.1 recupera el botón y el estado de Windows si faltan en un HTML
+anterior, espera al DOM antes de iniciar, identifica por ID otros elementos
+ausentes y usa `?v=1.1.1` en JS/CSS y en la ventana auxiliar para cargar los recursos
+correspondientes. Conserva el identificador, los permisos y los horarios guardados.
+
+En pruebas se reprodujo el error exacto con el código 1.1.0 y un documento sin el
+botón Windows; el documento equivalente funciona con 1.1.1. Hay **22 pruebas
+superadas**: las 19 anteriores y 3 pruebas del panel con DOM de linkedom y SDK real
+(panel completo, HTML anterior y mensaje de diagnóstico para otro ID ausente).
+Estas pruebas de DOM no sustituyen una comprobación visual en navegador o Windows.
+
+Para repetir las pruebas de panel, instala `linkedom`, configura
+`KANLANE_SDK_ROOT` como arriba y ejecuta:
+
+```powershell
+npm install --no-save linkedom
+node --test tests/panel.test.cjs
+```
+
+Para instalar la corrección sobre tu clon existente, descarga
+`kanbell-correccion-onclick.zip` en Descargas y ejecuta:
+
+```powershell
+cd "$HOME\Downloads"
+Expand-Archive -Path .\kanbell-correccion-onclick.zip -DestinationPath .\kanbell-correccion-onclick
+Copy-Item -Path .\kanbell-correccion-onclick\kanbell\* -Destination .\kanbell-extraido\kanbell\ -Recurse -Force
+cd .\kanbell-extraido\kanbell
+git add .
+git commit -m "Corregir inicio del panel y cache de KanBell"
+git push
+```
+
+Espera a que Pages publique los cambios. Cierra cualquier ventana auxiliar anterior,
+recarga Kanlane con Ctrl+F5 y vuelve a abrir KanBell. No hace falta desinstalar el
+plugin. Si se repite otro error, el nuevo mensaje debe indicar qué ID falta.

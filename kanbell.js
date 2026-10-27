@@ -1,7 +1,8 @@
 (function(){
   'use strict';
-  const K=KanBell, $=id=>document.getElementById(id);
-  const MANIFEST={id:'com.jmscb24.kanbell',name:'KanBell',version:'1.1.0',description:'Recordatorios personales de fichaje con horarios semanales, posposición y calendario exportable.',author:'Javier Marina',icon:'bell',color:34,permissions:['storage','ui:extend']};
+  const K=KanBell;
+  const $=id=>{const el=document.getElementById(id);if(!el)throw Error('Falta el elemento #'+id+'. Recarga Kanlane con Ctrl+F5 para actualizar KanBell.');return el;};
+  const MANIFEST={id:'com.jmscb24.kanbell',name:'KanBell',version:'1.1.1',description:'Recordatorios personales de fichaje con horarios semanales, posposición y calendario exportable.',author:'Javier Marina',icon:'bell',color:34,permissions:['storage','ui:extend']};
   const days=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   let wh, store, config, audio, checking=false, lastLabel='', localSaved=0;
   let desktopWindow=null, desktopToken=null;
@@ -89,7 +90,17 @@
     // Mantener margen bajo el límite de 60 escrituras/minuto del anfitrión.
     for(const key of stale.slice(0,10)) await store.remove(key);
   }
+  function ensureWindowsControls(){
+    // Compatibilidad con un index.html anterior que el navegador haya conservado.
+    if(document.getElementById('windows')&&document.getElementById('windows-status'))return;
+    const section=document.createElement('section');section.className='wh-card';
+    section.innerHTML='<h2>Notificaciones de Windows</h2><p>Guarda tu horario y abre la ventana de avisos. Déjala abierta o minimizada.</p>'+
+      (document.getElementById('windows')?'':'<button id="windows" type="button" class="wh-btn is-primary">Activar avisos de Windows</button>')+
+      (document.getElementById('windows-status')?'':'<p id="windows-status" class="wh-muted" role="status"></p>');
+    $('content').append(section);
+  }
   async function panel(){
+    ensureWindowsControls();
     window.addEventListener('message',ev=>{
       if(!desktopWindow||ev.source!==desktopWindow||ev.origin!==desktopOrigin||ev.data?.channel!=='kanbell.windows'||ev.data.token!==desktopToken)return;
       if(ev.data.type==='ready')syncDesktop();
@@ -100,7 +111,7 @@
         // Abrir desde el clic, antes de esperar operaciones de almacenamiento.
         if(desktopWindow&&!desktopWindow.closed){syncDesktop();desktopWindow.focus();return;}
         desktopToken=crypto.randomUUID();
-        const target=new URL('desktop.html',location.href);target.hash='kanbell='+desktopToken;
+        const target=new URL('desktop.html?v=1.1.1',location.href);target.hash='kanbell='+desktopToken;
         desktopWindow=window.open(target.href,'_blank','popup,width=620,height=820');
         $('windows-status').textContent=desktopWindow?'Abriendo avisos de Windows…':'El navegador ha bloqueado la ventana. Permite ventanas emergentes para Kanlane y vuelve a pulsar.';
       }catch(e){fail(e);}
@@ -116,6 +127,7 @@
     await summary();setInterval(()=>summary().catch(fail),15000);
   }
   WorkhubPlugin.connect(MANIFEST).then(async client=>{
+    if(document.readyState==='loading')await new Promise(resolve=>document.addEventListener('DOMContentLoaded',resolve,{once:true}));
     wh=client;store=wh.storage.user;
     config=K.validate(await store.get('config')||K.defaults());
     status('Horarios personales · No registra fichajes.');
@@ -139,5 +151,5 @@
       await prune();await run();setInterval(run,15000);
       window.addEventListener('pageshow',run);document.addEventListener('visibilitychange',run);
     }else await panel();
-  }).catch(e=>status(e.message==='not-in-workhub'?'Instala este enlace en Kanlane → Plugins → Añadir. Publica la carpeta por HTTPS (por ejemplo, GitHub Pages).':'No se pudo conectar: '+e.message,true));
+  }).catch(e=>status(e.message==='not-in-workhub'?'Instala este enlace en Kanlane → Plugins → Añadir. Publica la carpeta por HTTPS (por ejemplo, GitHub Pages).':'No se pudo iniciar KanBell: '+e.message,true));
 })();
