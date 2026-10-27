@@ -30,7 +30,7 @@ test('SDK real: manifiesto, permisos mínimos, mensajes, entrega y recarga', {sk
       });
     }};
     const document={documentElement:{classList:{add(){}},style:{setProperty(){}},setAttribute(){}},getElementById(id){return nodes[id]??=( {hidden:false,textContent:'',classList:{toggle(){}}} );},addEventListener(){}};
-    const context={Date:FixedDate,URL,TextEncoder,Intl,console,setTimeout,clearTimeout,setInterval:fn=>intervals.push(fn),addEventListener:(type,fn)=>listeners[type]=fn,parent,document,navigator:{language:'es'}};
+    const context={location:{href:"https://example.com/kanbell/index.html"},Date:FixedDate,URL,TextEncoder,Intl,console,setTimeout,clearTimeout,setInterval:fn=>intervals.push(fn),addEventListener:(type,fn)=>listeners[type]=fn,parent,document,navigator:{language:'es'}};
     context.window=context;const ctx=vm.createContext(context);
     for(const f of [path.join(sdkRoot,'workhub-plugin.js'),path.join(__dirname,'../core.js'),path.join(__dirname,'../kanbell.js')])vm.runInContext(fs.readFileSync(f,'utf8'),ctx,{filename:f});
     // Dejar completar la cadena de mensajes/promesas, sin esperar relojes reales.

@@ -1,8 +1,8 @@
 {
   "name": "kanbell",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Recordatorios personales de fichaje para Kanlane",
-  "scripts": {"test": "node --test tests/core.test.cjs", "test:browser": "node tests/browser.cjs"},
+  "scripts": {"test": "node --test tests/core.test.cjs tests/desktop.test.cjs", "test:browser": "node tests/browser.cjs"},
   "engines": {"node": ">=20"}
 }

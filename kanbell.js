@@ -1,9 +1,12 @@
 (function(){
   'use strict';
   const K=KanBell, $=id=>document.getElementById(id);
-  const MANIFEST={id:'com.jmscb24.kanbell',name:'KanBell',version:'1.0.0',description:'Recordatorios personales de fichaje con horarios semanales, posposición y calendario exportable.',author:'Javier Marina',icon:'bell',color:34,permissions:['storage','ui:extend']};
+  const MANIFEST={id:'com.jmscb24.kanbell',name:'KanBell',version:'1.1.0',description:'Recordatorios personales de fichaje con horarios semanales, posposición y calendario exportable.',author:'Javier Marina',icon:'bell',color:34,permissions:['storage','ui:extend']};
   const days=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   let wh, store, config, audio, checking=false, lastLabel='', localSaved=0;
+  let desktopWindow=null, desktopToken=null;
+  const desktopOrigin=new URL(location.href).origin;
+  function syncDesktop(){if(desktopWindow&&!desktopWindow.closed&&desktopToken)desktopWindow.postMessage({channel:'kanbell.windows',type:'schedule',token:desktopToken,config},desktopOrigin);}
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function status(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
   function fail(e){status('No se pudo completar: '+e.message,true);if(wh?.isBackground) wh.ui.toast('No se pudo completar: '+e.message,{type:'error'}).catch(()=>{});}
@@ -87,9 +90,24 @@
     for(const key of stale.slice(0,10)) await store.remove(key);
   }
   async function panel(){
+    window.addEventListener('message',ev=>{
+      if(!desktopWindow||ev.source!==desktopWindow||ev.origin!==desktopOrigin||ev.data?.channel!=='kanbell.windows'||ev.data.token!==desktopToken)return;
+      if(ev.data.type==='ready')syncDesktop();
+      if(ev.data.type==='received')$('windows-status').textContent='Horario enviado. En la ventana de avisos, pulsa «Permitir y activar avisos» y acepta el permiso.';
+    });
+    $('windows').onclick=()=>{
+      try{
+        // Abrir desde el clic, antes de esperar operaciones de almacenamiento.
+        if(desktopWindow&&!desktopWindow.closed){syncDesktop();desktopWindow.focus();return;}
+        desktopToken=crypto.randomUUID();
+        const target=new URL('desktop.html',location.href);target.hash='kanbell='+desktopToken;
+        desktopWindow=window.open(target.href,'_blank','popup,width=620,height=820');
+        $('windows-status').textContent=desktopWindow?'Abriendo avisos de Windows…':'El navegador ha bloqueado la ventana. Permite ventanas emergentes para Kanlane y vuelve a pulsar.';
+      }catch(e){fail(e);}
+    };
     $('content').hidden=false;$('zone').textContent=Intl.DateTimeFormat().resolvedOptions().timeZone;fill();
     $('settings').addEventListener('input',()=>status('Cambios sin guardar.'));
-    $('settings').onsubmit=async ev=>{ev.preventDefault();try{const draft=collect();await store.set('config',draft);config=draft;localSaved=Date.now();status('Guardado en tu cuenta.');await summary();}catch(e){fail(e);}};
+    $('settings').onsubmit=async ev=>{ev.preventDefault();try{const draft=collect();await store.set('config',draft);config=draft;syncDesktop();localSaved=Date.now();status('Guardado en tu cuenta.');await summary();}catch(e){fail(e);}};
     $('add').onclick=()=>{if($('reminders').children.length>=30) return status('Máximo 30 avisos.',true);row({id:'r-'+crypto.randomUUID(),name:'Nuevo recordatorio',time:'08:30',days:[1,2,3,4,5],enabled:true});status('Cambios sin guardar.');};
     $('pause-today').onclick=()=>{$('pause').value=K.dateKey(new Date());status('Pulsa Guardar cambios para pausar hoy.');};
     $('resume').onclick=()=>{$('pause').value='';status('Pulsa Guardar cambios para reanudar.');};
@@ -106,6 +124,7 @@
       if(ev.scope!=='user') return;
       if(ev.key==='config'){
         config=K.validate(await store.get('config')||K.defaults());
+        syncDesktop();
         if(!wh.isBackground&&Date.now()-localSaved>1000) status('El horario se ha actualizado en otra instancia. Reabre el panel para cargarlo; tus cambios visibles se conservan.');
       }
       await summary();
