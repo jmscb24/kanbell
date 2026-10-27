@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KanBell · Recordatorios de fichaje</title>
+<link rel="stylesheet" href="https://kanlane.com/plugins/sdk/workhub-plugin.css">
+<link rel="stylesheet" href="kanbell.css"></head>
+<body><main id="app">
+<header><div><span class="eyebrow">KANBELL</span><h1>Tu jornada, a su hora.</h1><p>Recordatorios de fichaje con tu propio horario.</p></div><span class="wh-badge">Plugin de Kanlane</span></header>
+<p id="status" role="status">Conectando con Kanlane…</p>
+<div id="content" hidden>
+<section class="wh-card next"><span class="eyebrow">PRÓXIMO AVISO</span><h2 id="next">—</h2><p id="countdown"></p><a id="portal" class="wh-btn" target="_blank" rel="noopener noreferrer" hidden>Abrir portal de fichaje</a><p class="wh-muted">Horas locales de este dispositivo: <span id="zone"></span>.</p></section>
+<section id="pending-section" hidden><h2>Avisos recientes</h2><div id="pending" aria-live="polite"></div></section>
+<form id="settings"><section><div class="section-head"><div><h2>Mis horarios</h2><p>Elige los días de cada entrada, salida o pausa.</p></div><button type="button" class="wh-btn" id="add">+ Añadir aviso</button></div><div id="reminders"></div></section>
+<section class="wh-card"><h2>Preferencias de avisos</h2>
+<label class="setting"><span>Sonido <small>Un tono breve al llegar la hora. El navegador puede bloquearlo.</small></span><input id="sound" type="checkbox"></label>
+<label class="setting"><span>Popup</span><select id="popup" class="wh-select"><option value="persistent">Hasta posponer o descartar</option><option value="temporary">Temporal (duración de Kanlane)</option></select></label>
+<label class="setting"><span>Portal de fichaje <small>Opcional. Se abrirá solo cuando pulses su enlace.</small></span><input id="url" class="wh-input" type="url" placeholder="https://…" maxlength="500"></label>
+<label class="setting"><span>Pausar hasta el final del día <small>Incluye la fecha seleccionada.</small></span><input id="pause" class="wh-input" type="date"></label>
+<div class="wh-row"><button id="pause-today" type="button" class="wh-btn">Pausar hoy</button><button id="resume" type="button" class="wh-btn">Reanudar</button></div>
+</section>
+<div class="actions wh-row"><button class="wh-btn is-primary" type="submit">Guardar cambios</button><button id="test" class="wh-btn" type="button">Probar aviso y sonido</button></div></form>
+<section class="wh-card"><h2>Cuando cierres Kanlane</h2><p>El plugin necesita Kanlane abierto y el proyecto con KanBell instalado. No puede despertar el navegador ni mostrar notificaciones del sistema desde su marco aislado.</p><p>Exporta los próximos 90 días a tu calendario para usar sus alarmas fuera del navegador. La entrega y el sonido dependen de esa aplicación. Si cambias tu horario, elimina la importación anterior y vuelve a exportar.</p><button id="export" class="wh-btn" type="button">Descargar calendario (.ics)</button></section>
+<p class="wh-muted foot">Cada aviso se muestra una vez. Solo se repite si lo pospones. Descartar no registra un fichaje. Los horarios se guardan en tu cuenta, comunes a tus proyectos.</p>
+</div></main><script src="https://kanlane.com/plugins/sdk/workhub-plugin.js"></script><script src="core.js"></script><script src="kanbell.js"></script></body></html>
