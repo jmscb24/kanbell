@@ -2,12 +2,9 @@
   'use strict';
   const K=KanBell;
   const $=id=>{const el=document.getElementById(id);if(!el)throw Error('Falta el elemento #'+id+'. Recarga Kanlane con Ctrl+F5 para actualizar KanBell.');return el;};
-  const MANIFEST={id:'com.jmscb24.kanbell',name:'KanBell',version:'1.1.1',description:'Recordatorios personales de fichaje con horarios semanales, posposición y calendario exportable.',author:'Javier Marina',icon:'bell',color:34,permissions:['storage','ui:extend']};
+  const MANIFEST={id:'com.jmscb24.kanbell',name:'KanBell',version:'1.2.0',description:'Recordatorios personales de fichaje con horarios semanales, posposición y calendario exportable.',author:'Javier Marina',icon:'bell',color:34,permissions:['storage','ui:extend','notifications']};
   const days=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   let wh, store, config, audio, checking=false, lastLabel='', localSaved=0;
-  let desktopWindow=null, desktopToken=null;
-  const desktopOrigin=new URL(location.href).origin;
-  function syncDesktop(){if(desktopWindow&&!desktopWindow.closed&&desktopToken)desktopWindow.postMessage({channel:'kanbell.windows',type:'schedule',token:desktopToken,config},desktopOrigin);}
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function status(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
   function fail(e){status('No se pudo completar: '+e.message,true);if(wh?.isBackground) wh.ui.toast('No se pudo completar: '+e.message,{type:'error'}).catch(()=>{});}
@@ -40,7 +37,23 @@
     if(!test) await resolve(e,v?Number(v.minutes):0);
     else if(v) await wh.ui.toast('Prueba terminada. No se ha programado ningún aviso.',{type:'important'});
   }
+  async function systemNotification(e,test=false){
+    if(!wh.has('notifications')) throw Error('Aprueba el permiso Notificaciones de KanBell en los ajustes de plugins de Kanlane.');
+    if(typeof wh.ui.notify!=='function') throw Error('Actualiza Kanlane para usar las notificaciones de plugins.');
+    await wh.ui.notify(test?'Prueba de recordatorio':e.name,{
+      body:test?'Las notificaciones de KanBell funcionan a través de Kanlane.':`Hora: ${e.time}. Abre KanBell en Kanlane para posponer o descartar.`,
+      tag:test?'kanbell-test':'kanbell-'+e.key,
+    });
+  }
+  function notificationError(e){
+    const code=e.code||e.message||'';
+    if(/notifications-denied/.test(code)) return 'Permite las notificaciones de Kanlane en el navegador y vuelve a probar.';
+    if(/rate-limited/.test(code)) return 'Se ha alcanzado el límite de notificaciones de Kanlane. Los avisos internos siguen disponibles.';
+    if(/unsupported/.test(code)) return 'Este navegador no admite notificaciones del sistema. Los avisos internos siguen disponibles.';
+    return e.message||String(e);
+  }
   async function notify(e,c){
+    try{await systemNotification(e);}catch(e){await wh.ui.toast(notificationError(e),{type:'important'}).catch(()=>{});}
     if(c.sound) tone().catch(()=>wh.ui.toast('Sonido bloqueado por el navegador. El aviso visual sigue activo.',{type:'important'}));
     if(c.popup==='persistent') persistent(e).catch(fail);
     else await wh.ui.toast(e.name+' · '+e.time+' · Abre KanBell para posponer o descartar.',{type:'important'});
@@ -90,35 +103,16 @@
     // Mantener margen bajo el límite de 60 escrituras/minuto del anfitrión.
     for(const key of stale.slice(0,10)) await store.remove(key);
   }
-  function ensureWindowsControls(){
-    // Compatibilidad con un index.html anterior que el navegador haya conservado.
-    if(document.getElementById('windows')&&document.getElementById('windows-status'))return;
-    const section=document.createElement('section');section.className='wh-card';
-    section.innerHTML='<h2>Notificaciones de Windows</h2><p>Guarda tu horario y abre la ventana de avisos. Déjala abierta o minimizada.</p>'+
-      (document.getElementById('windows')?'':'<button id="windows" type="button" class="wh-btn is-primary">Activar avisos de Windows</button>')+
-      (document.getElementById('windows-status')?'':'<p id="windows-status" class="wh-muted" role="status"></p>');
-    $('content').append(section);
-  }
   async function panel(){
-    ensureWindowsControls();
-    window.addEventListener('message',ev=>{
-      if(!desktopWindow||ev.source!==desktopWindow||ev.origin!==desktopOrigin||ev.data?.channel!=='kanbell.windows'||ev.data.token!==desktopToken)return;
-      if(ev.data.type==='ready')syncDesktop();
-      if(ev.data.type==='received')$('windows-status').textContent='Horario enviado. En la ventana de avisos, pulsa «Permitir y activar avisos» y acepta el permiso.';
-    });
-    $('windows').onclick=()=>{
+    $('windows').onclick=async()=>{
       try{
-        // Abrir desde el clic, antes de esperar operaciones de almacenamiento.
-        if(desktopWindow&&!desktopWindow.closed){syncDesktop();desktopWindow.focus();return;}
-        desktopToken=crypto.randomUUID();
-        const target=new URL('desktop.html?v=1.1.1',location.href);target.hash='kanbell='+desktopToken;
-        desktopWindow=window.open(target.href,'_blank','popup,width=620,height=820');
-        $('windows-status').textContent=desktopWindow?'Abriendo avisos de Windows…':'El navegador ha bloqueado la ventana. Permite ventanas emergentes para Kanlane y vuelve a pulsar.';
-      }catch(e){fail(e);}
+        await systemNotification({name:'Prueba',time:'ahora'},true);
+        $('windows-status').textContent='Prueba enviada a través de Kanlane. Los avisos requieren Kanlane abierto y KanBell cargado.';
+      }catch(e){$('windows-status').textContent=notificationError(e);}
     };
     $('content').hidden=false;$('zone').textContent=Intl.DateTimeFormat().resolvedOptions().timeZone;fill();
     $('settings').addEventListener('input',()=>status('Cambios sin guardar.'));
-    $('settings').onsubmit=async ev=>{ev.preventDefault();try{const draft=collect();await store.set('config',draft);config=draft;syncDesktop();localSaved=Date.now();status('Guardado en tu cuenta.');await summary();}catch(e){fail(e);}};
+    $('settings').onsubmit=async ev=>{ev.preventDefault();try{const draft=collect();await store.set('config',draft);config=draft;localSaved=Date.now();status('Guardado en tu cuenta.');await summary();}catch(e){fail(e);}};
     $('add').onclick=()=>{if($('reminders').children.length>=30) return status('Máximo 30 avisos.',true);row({id:'r-'+crypto.randomUUID(),name:'Nuevo recordatorio',time:'08:30',days:[1,2,3,4,5],enabled:true});status('Cambios sin guardar.');};
     $('pause-today').onclick=()=>{$('pause').value=K.dateKey(new Date());status('Pulsa Guardar cambios para pausar hoy.');};
     $('resume').onclick=()=>{$('pause').value='';status('Pulsa Guardar cambios para reanudar.');};
@@ -136,7 +130,7 @@
       if(ev.scope!=='user') return;
       if(ev.key==='config'){
         config=K.validate(await store.get('config')||K.defaults());
-        syncDesktop();
+
         if(!wh.isBackground&&Date.now()-localSaved>1000) status('El horario se ha actualizado en otra instancia. Reabre el panel para cargarlo; tus cambios visibles se conservan.');
       }
       await summary();

@@ -9,7 +9,7 @@ const {setImmediate}=require('node:timers/promises');
 const sdkRoot=process.env.KANLANE_SDK_ROOT;
 test('SDK real: manifiesto, permisos mínimos, mensajes, entrega y recarga', {skip:!sdkRoot},async()=>{
   const db=new Map(),calls=[];
-  async function boot(){
+  async function boot({denied=false}={}){
     const listeners={},nodes={},intervals=[];
     const fixed=new Date(2026,9,27,8,30).getTime();
     class FixedDate extends Date{constructor(...a){super(...(a.length?a:[fixed]));}static now(){return fixed;}}
@@ -17,10 +17,12 @@ test('SDK real: manifiesto, permisos mínimos, mensajes, entrega y recarga', {sk
       queueMicrotask(()=>{
         const emit=data=>listeners.message?.({source:parent,data:{wh:1,...data}});
         if(m.type==='hello'){
-          assert.deepEqual(Array.from(m.manifest.permissions),['storage','ui:extend']);
-          emit({type:'welcome',granted:['storage','ui:extend'],context:{mode:'background',project:{id:'p'},locale:'es',theme:{scheme:'dark',vars:{'--accent-solid':'#ff8800'}}}});return;
+          assert.deepEqual(Array.from(m.manifest.permissions),['storage','ui:extend','notifications']);
+          emit({type:'welcome',granted:['storage','ui:extend','notifications'],context:{mode:'background',project:{id:'p'},locale:'es',theme:{scheme:'dark',vars:{'--accent-solid':'#ff8800'}}}});return;
         }
-        calls.push(m);let value=true;
+        calls.push(m);
+        if(m.method==='ui.notify'&&denied){emit({type:'result',id:m.id,ok:false,error:{code:'notifications-denied',message:'Permiso denegado'}});return;}
+        let value=true;
         if(m.method==='storage.get')value=db.get(m.params.key)??null;
         if(m.method==='storage.keys')value=[...db.keys()];
         if(m.method==='storage.set')db.set(m.params.key,JSON.parse(JSON.stringify(m.params.value)));
@@ -43,5 +45,14 @@ test('SDK real: manifiesto, permisos mínimos, mensajes, entrega y recarga', {sk
   assert.equal(db.get('event.2026-10-27.entrada').status,'dismissed');
   assert.ok(calls.some(c=>c.method==='ui.addButton'&&c.params.location==='tasks.toolbar'));
   assert.ok(calls.filter(c=>c.method.startsWith('storage.')).every(c=>c.params.scope==='user'));
-  await boot();assert.equal(calls.filter(c=>c.method==='ui.form').length,1);
+  assert.equal(calls.filter(c=>c.method==='ui.notify').length,1);
+  assert.equal(calls.find(c=>c.method==='ui.notify').params.title,'Fichar entrada');
+  assert.equal(calls.find(c=>c.method==='ui.notify').params.tag,'kanbell-event.2026-10-27.entrada');
+  await boot();
+  assert.equal(calls.filter(c=>c.method==='ui.notify').length,1);
+  assert.equal(calls.filter(c=>c.method==='ui.form').length,1);
+  db.clear();calls.length=0;
+  await boot({denied:true});
+  assert.equal(calls.filter(c=>c.method==='ui.form').length,1,'el aviso interno se conserva si se deniega el permiso');
+  assert.ok(calls.some(c=>c.method==='ui.toast'&&/Permite las notificaciones/.test(c.params.message||c.params.text||'')));
 });
